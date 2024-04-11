@@ -1,5 +1,6 @@
 import math  # For isqrt
 import random  # For very-large random number generation
+import numpy as np  # For base36 encoding and logs
 import CNSec_Utils as util
 
 MIN_PRIME = 2**500  # Lower bound of p and q (for RSA key generation)
@@ -15,7 +16,7 @@ encode(M, K, n) to encode a message using key (K, n).
 decode(C, K, n) to decode a set of ciphertext chunks C using key (K, n).
     C must be an array of integers in modulus n (that is, output from encode()).
 
-Padding scheme:
+Padding scheme for plaintext:
     For a message chunk m with length l < CHUNK_SIZE,
     a padded message m' will be created using:
     m' = m + b'x\01' + b'x\00'*(CHUNK_SIZE - len(m) - 1)
@@ -24,7 +25,16 @@ Padding scheme:
     -> m' = b'abcd\x01\x00\x00\x00'
     
     (note that b'1' corresponds to the byte encoding of the ASCII character 1... not the value 1. b'\x01' is the actual value 1.)
+
+Padding scheme for encrypted chunks:
+Encrypted chunks are ASCII strings representing base-36 values, prepended with 0 such that they are f(n) bytes long.
 """
+
+def chunklen(n):
+    """
+    For an RSA key with public parameter n, calculates the padded length of an encrypted chunk.
+    """
+    return len(np.base_repr(n, 36))
 
 def generate_key():
     """
@@ -64,19 +74,24 @@ def _encrypt_chunk(m, k, n):
     if len(m) < CHUNK_SIZE:
         m = m + b'\x01' + (b'\x00' * (CHUNK_SIZE - len(m) - 1))
 
-    return util.fme(int.from_bytes(m, 'big', signed=False), k, n)
+    val = util.fme(int.from_bytes(m, 'big', signed=False), k, n)
+    out = np.base_repr(val, 36)
+    out = '0'*(chunklen(n) - len(out)) + out
+
+    return out
 
 def _decrypt_chunk(c, k, n, unpad=False):
     """
     Decrypts a message chunk.
-    :param c: Int (ciphertext)
+    :param c: String (base 36 ciphertext)
     :param k: Key parameter
     :param n: Key parameter
     :param unpad: If True, we expect this message to be padded; unpad the deciphered message
     :return: Bytes object
     """
-    assert type(c) == int, "RSA decrypt_chunk() passed a {}; expected an int".format(type(c))
-
+    assert type(c) == str, "RSA decrypt_chunk() passed a {}; expected a str".format(type(c))
+    
+    c = int(c, 36)
     out = util.fme(c, k, n)
 
     if unpad:  # Unpad the message
@@ -88,13 +103,12 @@ def encrypt(M, k, n):
     """
     Encrypts an arbitrary string M using key (k, n).
     1. Converts string to ASCII
-    2. Breaks string into CHUNK_SIZE-sized blocks
+    2. Breaks string into CHUNK_SIZE-sized plaintext blocks (the last block will be post-padded with 1||0000...)
     3. Encrypts each block individually
-        (The last block will be padded with 0's
     :param M:
     :param k:
     :param n:
-    :return: An array of encrypted chunks (integers). The last chunk will be padded (if necessary).
+    :return: An array of encrypted chunks (Base 36 string prepended with 0's). 
     """
     A = M.encode('ascii')
     chunks = list([A[i * CHUNK_SIZE:(i+1) * CHUNK_SIZE] for i in range(len(A) // CHUNK_SIZE + 1)])
@@ -135,7 +149,7 @@ if __name__ == '__main__':
     public_encrypted = encrypt(M, e, n)
     print("    Encrypted chunks:")
     for i, m in enumerate(public_encrypted):
-        print(f"      {i:>3}: {m:x}")
+        print(f"      {i:>3}: {m}")
     private_decrypted = decrypt(public_encrypted, d, n)
     print("    Decrypted: {}".format(private_decrypted))
 
@@ -145,7 +159,7 @@ if __name__ == '__main__':
     private_encrypted = encrypt(M, d, n)
     print("    Encrypted chunks:")
     for i, m in enumerate(private_encrypted):
-        print(f"      {i:>3}: {m:x}")
+        print(f"      {i:>3}: {m}")
     public_decrypted = decrypt(private_encrypted, e, n)
     print("    Decrypted: {}".format(public_decrypted))
     del d, e, n, i, m, plaintext, private_decrypted, public_encrypted, private_encrypted, public_decrypted, M
