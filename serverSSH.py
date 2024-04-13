@@ -2,6 +2,37 @@
 from socket import *
 import sys
 import ast
+import CNSec_RSA as rsa
+
+#get public key
+#open file in read mode, and get a list of usernames in the system
+f = open('keys.txt', "r")
+x = ast.literal_eval(f.read())
+usernames = x.keys()
+			
+#check if username is already in the file.
+if "admin" in usernames:
+
+	publicKey_server = x["admin"]
+	privateKey = x["adminr"]
+else:
+	
+	print("The server now has its private and public keys")
+	d, e, n = rsa.generate_key()
+	
+
+	#close file that was opened in read mode
+	f.close()
+						
+	#Add new username and key to file
+	x["admin"] = str(e) + "," + str(n)
+	x["adminr"] = str(d)
+	publicKey_server = x["admin"]
+	privateKey = x["adminr"]
+	print(x)
+	f = open('keys.txt', "w")
+	f.write(str(x))
+	f.close()
 
 #set up server in a try block
 try:
@@ -60,7 +91,7 @@ while True:
 			username = datalist[0]
 
 			#get the key
-			publicKey = datalist[1]
+			publicKey_client = datalist[1]
 
 			#check if nothing is received, break
 			#if not data:
@@ -76,7 +107,7 @@ while True:
 			#check if username is already in the file.
 			if username in usernames:
 
-				if x[username] == publicKey:
+				if x[username] == publicKey_client:
 				
 					print("User has registered before.")
 					response = 'User is already registered.\r\n\r\n'
@@ -92,7 +123,7 @@ while True:
 				f.close()
 						
 				#Add new username and key to file
-				x[username] = publicKey
+				x[username] = publicKey_client
 				print(x)
 				f = open('keys.txt', "w")
 				f.write(str(x))
