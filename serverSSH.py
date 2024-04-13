@@ -51,9 +51,6 @@ try:
 	#print to command prompt
 	print("The server is ready to receive")
 
-	#server public key
-	serverKey = "456789"
-
 #check for KeyboardInterrupt and close socket before exiting
 except KeyboardInterrupt:
 
@@ -78,7 +75,7 @@ while True:
 		#check if  registration request, send publicKey
 		if message.decode() == "REG":
 
-			response = serverKey
+			response = publicKey_server
 			connectionSocket.send((response).encode())
 
 			#receive file data
