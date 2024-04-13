@@ -1,6 +1,46 @@
 #client.py
 from socket import *
 import sys
+import ast
+import CNSec_RSA as rsa
+
+#get public key from client file
+	
+#get username
+username = sys.argv[3]
+
+#get public key
+#open file in read mode, and get a list of usernames in the system
+f = open('client_keys.txt', "r")
+x = ast.literal_eval(f.read())
+	
+
+usernames = x.keys()
+print(usernames)
+print(x)
+			
+#check if username is already in the file.
+if username in usernames:
+
+	publicKey = x[username]
+
+else:	
+		
+	print("Username has been added to client file")
+	d, e, n = rsa.generate_key()
+	
+
+	#close file that was opened in read mode
+	f.close()
+						
+	#Add new username and key to file
+	x[username] = str(e) + "," + str(n)
+	x[username + "r"] = str(d)
+	publicKey = x[username]
+	print(x)
+	f = open('client_keys.txt', "w")
+	f.write(str(x))
+	f.close()
 	
 #set up client in try block
 try:	
@@ -22,12 +62,6 @@ try:
 
 		#shutdown client
 		sys.exit()
-
-	#get username
-	username = sys.argv[3]
-
-	#get public key
-	publicKey = "123456"
 
 	#prepare a client socket
 	clientSocket = socket(AF_INET, SOCK_STREAM)
