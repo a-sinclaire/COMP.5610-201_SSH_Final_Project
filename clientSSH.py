@@ -112,7 +112,7 @@ try:
 				#verify we have the correct public key for the server
 				if x[serverName] == publicKey_server:
 
-					print("servers public key i verified")
+					print("servers public key is verified")
 				else:
 			
 					print("The server's public key does not match")
