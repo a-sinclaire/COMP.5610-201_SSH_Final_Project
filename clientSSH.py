@@ -16,13 +16,12 @@ x = ast.literal_eval(f.read())
 	
 
 usernames = x.keys()
-print(usernames)
 print(x)
 			
 #check if username is already in the file.
 if username in usernames:
 
-	publicKey = x[username]
+	publicKey_client = x[username]
 
 else:	
 		
@@ -36,7 +35,7 @@ else:
 	#Add new username and key to file
 	x[username] = str(e) + "," + str(n)
 	x[username + "r"] = str(d)
-	publicKey = x[username]
+	publicKey_client = x[username]
 	print(x)
 	f = open('client_keys.txt', "w")
 	f.write(str(x))
@@ -74,7 +73,7 @@ try:
 
 	#create request to server
 	request = requestType
-	request2 = username + " " + publicKey
+	request2 = username + " " + publicKey_client
 	
 	#send request to server
 	clientSocket.send(request.encode())
@@ -86,7 +85,39 @@ try:
 		try:
 			#get response from server
 			response = clientSocket.recv(1024)
-			print(response.decode())
+			publicKey_server = response.decode()
+			print(publicKey_server)
+
+			#get public key
+		
+			#open file in read mode, and get a list of usernames in the system
+			f = open('client_keys.txt', "r")
+			x = ast.literal_eval(f.read())
+			usernames = x.keys()
+			
+			#check if username is already in the file.
+			if serverName not in usernames:
+
+				x[serverName] = publicKey_server
+
+				#close file that was opened in read mode
+				f.close()
+				print(x)
+				f = open('client_keys.txt', "w")
+				f.write(str(x))
+				f.close() 
+
+			else:	
+		
+				#verify we have the correct public key for the server
+				if x[serverName] == publicKey_server:
+
+					print("servers public key i verified")
+				else:
+			
+					print("The server's public key does not match")
+
+				# we need to decide how to handle this case, either terminate connection or update the file to have the new server key
 
 		#check for exceptions thrown
 		except IOError as e:
