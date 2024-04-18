@@ -46,7 +46,8 @@ def generate_key():
             break
     while True:  # Generate a random large prime number q
         if util.is_prime(q := random.randint(MIN_PRIME, MAX_PRIME)):
-            break
+            if q != p:
+                break
     n = p*q
 
     l = (p-1)*(q-1) // util.gcd((p-1), (q-1))  # Carmichael Totient Function of n. (Integer division // is only used to enforce the Python type to be integral; by construction, the value must be an integer regardless)
