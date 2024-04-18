@@ -50,21 +50,18 @@ try:
 
 	#print to command prompt
 	print("The server is ready to receive")
-
 #check for KeyboardInterrupt and close socket before exiting
 except KeyboardInterrupt:
-
 	print("KeyboardInterrupt: Closing socket and shutting down server!") 
 	serverSocket.close()
 	sys.exit()
 
-#go into an infinite while loop that will wait for connections
+# go into an infinite while loop that will wait for connections
 while True:
-
 	print("Ready to serve..")
 
 	try:
-		#new socket is created & a connection is set up with the client making the request
+		# new socket is created & a connection is set up with the client making the request
 		connectionSocket, addr = serverSocket.accept()	
 
 		#message contains the request from the client
@@ -121,10 +118,23 @@ while True:
 
 			#send response
 			connectionSocket.send((response).encode())
-
-			#close the connection socket
-			connectionSocket.close()
-
+			#connection.close()
+			
+			while True:
+				try:
+					m = connectionSocket.recv(2048).decode().split()
+					username = m[0]
+					pubkey = m[1]
+					message = ' '.join(m[2:])
+				
+					print(f'recieved normal message: {message}')
+					connectionSocket.send(message.encode())
+					
+					if message == 'exit':
+						connectionSocket.close()
+						break
+				except:
+					connectionSocket.close()
 
 	#check for KeyboardInterrupt and close sockets before exiting
 	except KeyboardInterrupt:

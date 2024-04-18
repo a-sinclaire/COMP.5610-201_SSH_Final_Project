@@ -1,136 +1,145 @@
-#client.py
+# clientSSH.py
 from socket import *
 import sys
 import ast
 import CNSec_RSA as rsa
 import os
 	
-#get username
-username = sys.argv[3]
+# get username
+username = sys.argv[2]
 
-#get client public key
+# get client public key
 directory = os.path.dirname(os.path.abspath(__file__))
 client_keys_filename = os.path.join(directory, 'client_keys.txt')
-# create the file if it does not exist
+# create the file to store client keys if it does not exist
 if not os.path.exists(client_keys_filename):
     with open(client_keys_filename, 'w') as f:
         f.write('{}')
-#open file in read mode, and get a list of usernames in the system
+# open file in read mode, and get a list of usernames and corresponding keys in the system
 with open(client_keys_filename, "r") as f:
 	x = ast.literal_eval(f.read())
 	
-
+# list of just usernames saved in client keys file
 usernames = x.keys()
-# print(x)
+print(f'Usernames in client_keys.txt: {list(usernames)}')
 
-#check if username is already in the file.
+
+#check if username is already in client_keys.txt
 if username in usernames:
-    publicKey_client = x[username]  # get public key from client file
+	print(f'Username {username} found in client_keys.txt')
+	publicKey_client = x[username]  # get public key from client file
 else:
+	print(f'Username {username} not found in client_keys.txt')
+	# username not in client_keys.txt
+	# generate a new public and private key for this user
+	print('Generating new keys for this user...')
 	d, e, n = rsa.generate_key()
 						
-	#Add new username and key to file
+	# add new username and key(s) to file
 	x[username] = str(e) + "," + str(n)
-	x[username + "r"] = str(d)
+	x[username + "r"] = str(d)  # TODO: check to see if this has any issues if a user chooses the same username as another user, but with just an r on the end
 	publicKey_client = x[username]
-	print(x)
 	with open('client_keys.txt', "w") as f:
 		f.write(str(x))
 	print(f"Username {username} has been added to client file")
+	#print(f'Updated client_keys.txt: {x}')
 	
-#set up client in try block
+# set up client in try block
 try:	
-	#get server name from command line input
+	# get server name from command line input
 	serverName = sys.argv[1]
 	
-	#get server port number from commandline
+	# server port 22 bc 22 is reserved for ssh
 	serverPort = 22
-		
-	#m = input()
-
-	#get request type
-	requestType = sys.argv[2]
-
-	#verify request type is REG or NOR
-	if requestType != "REG" and requestType != "NOR":
-
-		print("Error: Enter a valid request, REG or NOR")
-
-		#shutdown client
-		sys.exit()
 
 	#prepare a client socket
 	clientSocket = socket(AF_INET, SOCK_STREAM)
 
 	#connect to the provided server name with the provided server port
 	clientSocket.connect((serverName, serverPort))
-	
-	#send request to server
-	#clientSocket.send(m.encode())
 
-	#create request to server
-	request = requestType
+	# Attempt to register myself with the server
+	request = 'REG'
 	request2 = username + " " + publicKey_client
 	
-	#send request to server
-	clientSocket.send(request.encode())
-
-	#check if request type is GET
-	if requestType == "REG":
-
-		#get servers public key and then send username and client key
-		try:
-			#get response from server
-			response = clientSocket.recv(1024)
-			publicKey_server = response.decode()
-			print(f'Server public key: {publicKey_server}')
-
-			#get public key
+	
+	# Get server's public key
+	clientSocket.send(request.encode())  # requesting server pub key
+	try:
+		print(f'Requesting {serverName}\'s public key...')
+		response = clientSocket.recv(1024)
+		publicKey_server = response.decode()
+		print(f'Recieved {serverName}\'s public key!')
+		# print(f'Server public key: {publicKey_server}')
+	
+		# read in saved usernames and keys from client_keys.tct
+		with open('client_keys.txt', "r") as f:
+			x = ast.literal_eval(f.read())
+		usernames = x.keys()
 		
-			#open file in read mode, and get a list of usernames in the system
-			with open('client_keys.txt', "r") as f:
-				x = ast.literal_eval(f.read())
-			usernames = x.keys()
-			
-			#check if username is already in the file.
-			if serverName not in usernames:
-				x[serverName] = publicKey_server
+		#check if server's username is already in the file.
+		if serverName not in usernames:
+			print(f'{serverName}\'s public key not saved in client_keys.txt')
+			# server's username and pub key isn't saved in client_keys.txt
+			x[serverName] = publicKey_server
 
-				print(f'Adding server public key for {serverName} to client_keys.txt')
-				print(f'keys on client: {x}')
-				with open('client_keys.txt', "w") as f:
-					f.write(str(x))
-			else:	
-				# verify we have the correct public key for the server
-				if x[serverName] == publicKey_server:
-					print("Server's public key is verified.")
-				else:
-					print("The server's public key does not match.")
+			print(f'Adding server public key for {serverName} to client_keys.txt')
+			with open('client_keys.txt', "w") as f:
+				f.write(str(x))
+			#print(f'Updated client_keys.txt: {x}')
+		else:
+			print(f'{serverName}\'s public key found in client_keys.txt')
+			# server's username and pub key is saved in client_keys.txt
+			# verify we have the correct public key for the server
+			if x[serverName] == publicKey_server:
+				print("Server's public key is verified.")
+			else:
+				print("The server's public key does not match!!!")
+				# TODO: we need to decide how to handle this case,
+				# either terminate connection or update the file to
+				# have the new server key
+	except IOError as e:
+		print("Exception thrown: \r\n", e)
 
-				# we need to decide how to handle this case, either terminate connection or update the file to have the new server key
 
-		#check for exceptions thrown
-		except IOError as e:
-			print("Exception thrown: \r\n", e)
+	# Register my username with the server
+	# send username and key
+	clientSocket.send(request2.encode())  # registering with server
+	try:
+		#get response from server
+		response = clientSocket.recv(1024)
+		print(f'SERVER: {response.decode()}')
+	#check for exceptions thrown
+	except IOError as e:
+		print("Exception thrown: \r\n", e)	
 
-		#send username and key
-		clientSocket.send(request2.encode())
-			
-		try:
-			#get response from server
-			response = clientSocket.recv(1024)
-
-			print(response.decode())
-
-		#check for exceptions thrown
-		except IOError as e:
-			print("Exception thrown: \r\n", e)	
 	
-		#close socket once all data is received from server
-		clientSocket.close()
+	#####################################################################
+	# Now that it is all set up and we are registered (or already were) #
+	# We can process requests!											#
+	#####################################################################
+	print()
+	while True:
+		print('> ', end='')
+		m = input()
+
+		# TODO: encrypt m and also send SHA fingerprint
+		norRequest = username + ' ' + publicKey_client + ' ' + m
+		clientSocket.send(norRequest.encode())
+		
+		#get response from server
+		response = clientSocket.recv(1024)
+		print(f'SERVER: {response.decode()}')
+		
+		if m == 'exit':
+			break
 	
-		#shutdown client
-		sys.exit()
+
+	#close socket once all data is received from server
+	clientSocket.close()
+
+	#shutdown client
+	sys.exit()
 
 except IndexError as e:
 
