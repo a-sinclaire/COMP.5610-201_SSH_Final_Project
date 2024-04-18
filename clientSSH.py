@@ -3,43 +3,40 @@ from socket import *
 import sys
 import ast
 import CNSec_RSA as rsa
-
-#get public key from client file
+import os
 	
 #get username
 username = sys.argv[3]
 
-#get public key
+#get client public key
+directory = os.path.dirname(os.path.abspath(__file__))
+client_keys_filename = os.path.join(directory, 'client_keys.txt')
+# create the file if it does not exist
+if not os.path.exists(client_keys_filename):
+    with open(client_keys_filename, 'w') as f:
+        f.write('{}')
 #open file in read mode, and get a list of usernames in the system
-f = open('client_keys.txt', "r")
-x = ast.literal_eval(f.read())
+with open(client_keys_filename, "r") as f:
+	x = ast.literal_eval(f.read())
 	
 
 usernames = x.keys()
-print(x)
-			
+# print(x)
+
 #check if username is already in the file.
 if username in usernames:
-
-	publicKey_client = x[username]
-
-else:	
-		
-	print("Username has been added to client file")
+    publicKey_client = x[username]  # get public key from client file
+else:
 	d, e, n = rsa.generate_key()
-	
-
-	#close file that was opened in read mode
-	f.close()
 						
 	#Add new username and key to file
 	x[username] = str(e) + "," + str(n)
 	x[username + "r"] = str(d)
 	publicKey_client = x[username]
 	print(x)
-	f = open('client_keys.txt', "w")
-	f.write(str(x))
-	f.close()
+	with open('client_keys.txt', "w") as f:
+		f.write(str(x))
+	print(f"Username {username} has been added to client file")
 	
 #set up client in try block
 try:	
@@ -86,36 +83,29 @@ try:
 			#get response from server
 			response = clientSocket.recv(1024)
 			publicKey_server = response.decode()
-			print(publicKey_server)
+			print(f'Server public key: {publicKey_server}')
 
 			#get public key
 		
 			#open file in read mode, and get a list of usernames in the system
-			f = open('client_keys.txt', "r")
-			x = ast.literal_eval(f.read())
+			with open('client_keys.txt', "r") as f:
+				x = ast.literal_eval(f.read())
 			usernames = x.keys()
 			
 			#check if username is already in the file.
 			if serverName not in usernames:
-
 				x[serverName] = publicKey_server
 
-				#close file that was opened in read mode
-				f.close()
-				print(x)
-				f = open('client_keys.txt', "w")
-				f.write(str(x))
-				f.close() 
-
+				print(f'Adding server public key for {serverName} to client_keys.txt')
+				print(f'keys on client: {x}')
+				with open('client_keys.txt', "w") as f:
+					f.write(str(x))
 			else:	
-		
-				#verify we have the correct public key for the server
+				# verify we have the correct public key for the server
 				if x[serverName] == publicKey_server:
-
-					print("servers public key is verified")
+					print("Server's public key is verified.")
 				else:
-			
-					print("The server's public key does not match")
+					print("The server's public key does not match.")
 
 				# we need to decide how to handle this case, either terminate connection or update the file to have the new server key
 

@@ -3,26 +3,27 @@ from socket import *
 import sys
 import ast
 import CNSec_RSA as rsa
+import os
 
 #get public key
+directory = os.path.dirname(os.path.abspath(__file__))
+server_keys_filename = os.path.join(directory, 'server_keys.txt')
+# create the file if it does not exist
+if not os.path.exists(server_keys_filename):
+    with open(server_keys_filename, 'w') as f:
+        f.write('{}')
 #open file in read mode, and get a list of usernames in the system
-f = open('keys.txt', "r")
-x = ast.literal_eval(f.read())
+with open('server_keys.txt', "r") as f:
+	x = ast.literal_eval(f.read())
 usernames = x.keys()
 			
 #check if username is already in the file.
 if "admin" in usernames:
-
 	publicKey_server = x["admin"]
 	privateKey = x["adminr"]
 else:
-	
 	print("The server now has its private and public keys")
 	d, e, n = rsa.generate_key()
-	
-
-	#close file that was opened in read mode
-	f.close()
 						
 	#Add new username and key to file
 	x["admin"] = str(e) + "," + str(n)
@@ -30,9 +31,8 @@ else:
 	publicKey_server = x["admin"]
 	privateKey = x["adminr"]
 	print(x)
-	f = open('keys.txt', "w")
-	f.write(str(x))
-	f.close()
+	with open('server_keys.txt', "w") as f:
+		f.write(str(x))
 
 #set up server in a try block
 try:
@@ -95,37 +95,29 @@ while True:
 				
 
 			#open file in read mode, and get a list of usernames in the system
-			f = open('keys.txt', "r")
-			x = ast.literal_eval(f.read())
+			with open('server_keys.txt', "r") as f:
+				x = ast.literal_eval(f.read())
 			usernames = x.keys()
-			print(usernames)
-			print(x)
+			print(f'usernames on server: {usernames}')
+			print(f'keys on server: {x}')
 				
 			#check if username is already in the file.
 			if username in usernames:
-
 				if x[username] == publicKey_client:
-				
-					print("User has registered before.")
-					response = 'User is already registered.\r\n\r\n'
-				else:
-							
-					print("Username is not available")
-					response = 'Username is already in use by another user'
+					print(f"User {username} has registered before.")
+					response = f'User {username} is already registered.\r\n\r\n'
+				else:	
+					print(f"Username {username} is not available")
+					response = f'Username {username} is already in use by another user'
 			else:
-
-				print("The username will be added to our system")
-						
-				#close file that was opened in read mode
-				f.close()
+				print(f"The username {username} will be added to our system")
 						
 				#Add new username and key to file
 				x[username] = publicKey_client
-				print(x)
-				f = open('keys.txt', "w")
-				f.write(str(x))
-				f.close()
-				response = 'The user have been registered\r\n\r\n'
+				print(f'updated keys on server: {x}')
+				with open('server_keys.txt', "w") as f:
+					f.write(str(x))
+				response = f'The user {username} has been registered\r\n\r\n'
 
 			#send response
 			connectionSocket.send((response).encode())
