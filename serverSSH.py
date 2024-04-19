@@ -126,8 +126,10 @@ while True:
                     f.write(str(x))
                 response = f'The user {username} has been registered\r\n\r\n'
 
+            publicKey_client_e, publicKey_client_n = [int(_) for _ in publicKey_client.split(',')]
             #send response
-            connectionSocket.send((response).encode())
+            response = ' '.join(rsa.encrypt(response, publicKey_client_e, publicKey_client_n))
+            connectionSocket.send(response.encode())
             #connection.close()
 
             while True:

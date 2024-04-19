@@ -29,7 +29,8 @@ print(f'Usernames in client_keys.txt: {list(usernames)}')
 if username in usernames:
     print(f'Username {username} found in client_keys.txt')
     publicKey_client = x[username]  # get public key from client file
-    privateKey_client = x[username] + 'r'  # TODO: same issue as below ('r' suffix)
+    publicKey_client_e, publicKey_client_n = [int(_) for _ in publicKey_client.split(',')]
+    privateKey_client = int(x[username + 'r'])  # TODO: same issue as below ('r' suffix)
 else:
     print(f'Username {username} not found in client_keys.txt')
     # username not in client_keys.txt
@@ -41,6 +42,7 @@ else:
     x[username] = str(e) + "," + str(n)
     x[username + "r"] = str(d)  # TODO: check to see if this has any issues if a user chooses the same username as another user, but with just an r on the end
     publicKey_client = x[username]
+    publicKey_client_e, publicKey_client_n = [int(_) for _ in publicKey_client.split(',')]
     with open('client_keys.txt', "w") as f:
         f.write(str(x))
     print(f"Username {username} has been added to client file")
@@ -112,8 +114,10 @@ try:
     clientSocket.send(request2.encode())
     try:
         #get response from server
-        response = clientSocket.recv(1024)
-        print(f'SERVER: {response.decode()}')
+        response = clientSocket.recv(1024).decode()
+        response = response.split(' ')
+        response = rsa.decrypt(response, privateKey_client, publicKey_client_n)
+        print(f'SERVER: {response}')
     #check for exceptions thrown
     except IOError as e:
         print("Exception thrown: \r\n", e)
