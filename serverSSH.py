@@ -170,7 +170,7 @@ while True:
                     connectionSocket.send(output)
 
                     print(f'recieved normal message: {message}')
-                    print(f'recieved normal message: {output}')
+                    print(f'sending normal message: {output}')
 
                     if message == 'exit':
                         connectionSocket.close()
