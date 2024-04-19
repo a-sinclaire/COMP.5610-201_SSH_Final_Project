@@ -163,4 +163,15 @@ if __name__ == '__main__':
         print(f"      {i:>3}: {m}")
     public_decrypted = decrypt(private_encrypted, e, n)
     print("    Decrypted: {}".format(public_decrypted))
+
+    M = "Hello, World!"
+    print("  Encrypting message '{}' using public key, and decrypting using private key:".format(M))
+    plaintext = int.from_bytes(M.encode('ascii'), byteorder='big', signed=False)
+    print("    Plaintext: {:x}".format(plaintext))
+    public_encrypted = encrypt(M, e, n)
+    print("    Encrypted chunks:")
+    for i, m in enumerate(public_encrypted):
+        print(f"      {i:>3}: {m}")
+    private_decrypted = decrypt(public_encrypted, d, n)
+    print("    Decrypted: {}".format(private_decrypted))
     del d, e, n, i, m, plaintext, private_decrypted, public_encrypted, private_encrypted, public_decrypted, M
