@@ -69,7 +69,9 @@ while True:
         connectionSocket, addr = serverSocket.accept()
 
         #message contains the request from the client
-        message = connectionSocket.recv(1024)
+        mlen = connectionSocket.recv(4)
+        mlen = int.from_bytes(mlen, 'big', signed=False)
+        message = connectionSocket.recv(mlen)
 
         print(f'recieved message: {message}')
 
@@ -77,10 +79,13 @@ while True:
         if message.decode() == "REG":
 
             response = publicKey_server
-            connectionSocket.send((response).encode())
+            response = len(response).to_bytes(4, 'big', signed=False) + response.encode()
+            connectionSocket.send(response)
 
             #receive file data
-            data = connectionSocket.recv(2048)
+            mlen = connectionSocket.recv(4)
+            mlen = int.from_bytes(mlen, 'big', signed=False)
+            data = connectionSocket.recv(mlen)
 
             #datalist contain a list of the data from the request
             datalist = data.decode().split(' ')
@@ -130,12 +135,15 @@ while True:
             publicKey_client_e, publicKey_client_n = [int(_) for _ in publicKey_client.split(',')]
             #send response
             response = ' '.join(rsa.encrypt(response, publicKey_client_e, publicKey_client_n))
-            connectionSocket.send(response.encode())
+            response = len(response).to_bytes(4, 'big', signed=False) + response.encode()
+            connectionSocket.send(response)
             #connection.close()
 
             while True:
                 try:
-                    m = connectionSocket.recv(2048).decode().split()
+                    mlen = connectionSocket.recv(4)
+                    mlen = int.from_bytes(mlen, 'big', signed=False)
+                    m = connectionSocket.recv(mlen).decode().split()
                     msg_index = 0  # Indexer used to check how much of the message we've processed so far
 
                     # Decrypt the message
@@ -158,7 +166,8 @@ while True:
 
                     output = ' '.join(rsa.encrypt(output, publicKey_client_e, publicKey_client_n))
 
-                    connectionSocket.send(output.encode())
+                    output = len(output).to_bytes(4, 'big', signed=False) + output.encode()
+                    connectionSocket.send(output)
 
                     print(f'recieved normal message: {message}')
                     print(f'recieved normal message: {output}')

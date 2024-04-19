@@ -64,13 +64,17 @@ try:
 
     # Attempt to register myself with the server
     request = 'REG'
+    request = len(request).to_bytes(4, 'big', signed=False) + request.encode()
 
 
     # Get server's public key
-    clientSocket.send(request.encode())  # requesting server pub key
+    clientSocket.send(request)  # requesting server pub key
     try:
         print(f'Requesting {serverName}\'s public key...')
-        response = clientSocket.recv(1024)
+        mlen = clientSocket.recv(4)
+        mlen = int.from_bytes(mlen, 'big', signed=False)
+        response = clientSocket.recv(mlen)
+
         publicKey_server = response.decode()
         publicKey_server_e, publicKey_server_n = [int(_) for _ in publicKey_server.split(',')]
         print(f'Recieved {serverName}\'s public key!')
@@ -111,10 +115,13 @@ try:
     encrypted_username = rsa.encrypt(username, publicKey_server_e, publicKey_server_n)
     encrypted_publicKey_client = rsa.encrypt(publicKey_client, publicKey_server_e, publicKey_server_n)
     request2 = str(len(encrypted_username)) + ' ' + ' '.join(encrypted_username) + ' ' + str(len(encrypted_publicKey_client)) + ' ' + ' '.join(encrypted_publicKey_client)
-    clientSocket.send(request2.encode())
+    request2 = len(request2).to_bytes(4, 'big', signed=False) + request2.encode()
+    clientSocket.send(request2)
     try:
         #get response from server
-        response = clientSocket.recv(1024).decode()
+        mlen = clientSocket.recv(4)
+        mlen = int.from_bytes(mlen, 'big', signed=False)
+        response = clientSocket.recv(mlen).decode()
         response = response.split(' ')
         response = rsa.decrypt(response, privateKey_client, publicKey_client_n)
         print(f'SERVER: {response}')
@@ -136,10 +143,13 @@ try:
         encmhash = rsa.encrypt(sha.sha256(m), privateKey_client, publicKey_client_n)
         menc = rsa.encrypt(m, publicKey_server_e, publicKey_server_n)
         norRequest = str(len(menc)) + ' ' + ' '.join(menc) + ' ' + str(len(encmhash)) + ' ' + ' '.join(encmhash)
-        clientSocket.send(norRequest.encode())
+        norRequest = len(norRequest).to_bytes(4, 'big', signed=False) + norRequest.encode()
+        clientSocket.send(norRequest)
 
         #get response from server
-        response = clientSocket.recv(2048).decode()
+        mlen = clientSocket.recv(4)
+        mlen = int.from_bytes(mlen, 'big', signed=False)
+        response = clientSocket.recv(mlen).decode()
         response = rsa.decrypt(response.split(' '), privateKey_client, publicKey_client_n)
         print(f'SERVER: {response}')
 
