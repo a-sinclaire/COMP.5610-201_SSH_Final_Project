@@ -132,13 +132,16 @@ try:
         print('> ', end='')
         m = input()
 
-        # TODO: encrypt m and also send SHA fingerprint
-        norRequest = username + ' ' + publicKey_client + ' ' + m
+        # Encrypt the message, encrypt the hash of the message, and send these both
+        encmhash = rsa.encrypt(sha.sha256(m), privateKey_client, publicKey_client_n)
+        menc = rsa.encrypt(m, publicKey_server_e, publicKey_server_n)
+        norRequest = str(len(menc)) + ' ' + ' '.join(menc) + ' ' + str(len(encmhash)) + ' ' + ' '.join(encmhash)
         clientSocket.send(norRequest.encode())
 
         #get response from server
-        response = clientSocket.recv(1024)
-        print(f'SERVER: {response.decode()}')
+        response = clientSocket.recv(2048).decode()
+        response = rsa.decrypt(response.split(' '), privateKey_client, publicKey_client_n)
+        print(f'SERVER: {response}')
 
         if m == 'exit':
             break

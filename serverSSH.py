@@ -3,6 +3,7 @@ from socket import *
 import sys
 import ast
 import CNSec_RSA as rsa
+import CNSec_SHA2 as sha
 import os
 import subprocess
 
@@ -83,7 +84,7 @@ while True:
 
             #datalist contain a list of the data from the request
             datalist = data.decode().split(' ')
-            msg_index = 0  # Indexor used to check how much of the message we've processed so far
+            msg_index = 0  # Indexer used to check how much of the message we've processed so far
 
             #get the username
             number_of_username_chunks = int(datalist[msg_index])
@@ -135,18 +136,32 @@ while True:
             while True:
                 try:
                     m = connectionSocket.recv(2048).decode().split()
-                    username = m[0]
-                    pubkey = m[1]
-                    message = ' '.join(m[2:])
+                    msg_index = 0  # Indexer used to check how much of the message we've processed so far
 
-                    output = "output:\n"
-                    output += subprocess.getoutput(message)
+                    # Decrypt the message
+                    number_of_content_chunks = int(m[msg_index])
+                    msg_index += 1
+                    message = rsa.decrypt(m[msg_index:msg_index + number_of_content_chunks], privateKey, publicKey_server_n)
+                    msg_index += number_of_content_chunks
+
+                    # Decrypt the hash of the message
+                    number_of_hash_chunks = int(m[msg_index])
+                    msg_index += 1
+                    message_hash = rsa.decrypt(m[msg_index:msg_index + number_of_key_chunks], publicKey_client_e, publicKey_client_n)
+                    msg_index += number_of_hash_chunks
+
+                    if sha.sha256(message) != message_hash:
+                        output = "Invalid hash fingerprint -- authentication failed"
+                    else:
+                        output = "output:\n"
+                        output += subprocess.getoutput(message)
+
+                    output = ' '.join(rsa.encrypt(output, publicKey_client_e, publicKey_client_n))
 
                     connectionSocket.send(output.encode())
 
                     print(f'recieved normal message: {message}')
                     print(f'recieved normal message: {output}')
-                    connectionSocket.send(message.encode())
 
                     if message == 'exit':
                         connectionSocket.close()
