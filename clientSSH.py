@@ -17,9 +17,9 @@ while ',' in username:
 requestType = sys.argv[3]
 
 #verify request type is REG or NOR or SCP
-if requestType != "REG" and requestType != "NOR" and requestType != "SCP":
+if requestType != "REG" and requestType != "NOR" and requestType != "SCP" and requestType != "HELP":
 
-    print("Error: Enter a valid request, REG, NOR, SCP")
+    print("Error: Enter a valid request, REG, NOR, SCP, HELP")
 
     #shutdown client
     sys.exit()
@@ -49,7 +49,7 @@ if username in usernames:
     print(f'Username {username} found in client_keys.txt')
     publicKey_client = x[username]  # get public key from client file
     publicKey_client_e, publicKey_client_n = [int(_) for _ in publicKey_client.split(',')]
-    privateKey_client = int(x[username + ',r'])  # TODO: same issue as below ('r' suffix)
+    privateKey_client = int(x[username + ',r'])
 
 else:
 
@@ -61,9 +61,10 @@ else:
 
     # add new username and key(s) to file
     x[username] = str(e) + "," + str(n)
-    x[username + ",r"] = str(d)  # TODO: check to see if this has any issues if a user chooses the same username as another user, but with just an r on the end
+    x[username + ",r"] = str(d)
     publicKey_client = x[username]
     publicKey_client_e, publicKey_client_n = [int(_) for _ in publicKey_client.split(',')]
+    privateKey_client = int(x[username + ',r'])
 
     with open('client_keys.txt', "w") as f:
        	f.write(str(x))
@@ -131,18 +132,38 @@ try:
 
         else:
 
-            print("The server's public key does not match!!!")
-            # TODO: we need to decide how to handle this case,
-            # either terminate connection or update the file to
-            # have the new server key
+            print("The server's public key does not match!!! Closing connection")
 
-            publicKey_server = x[serverName]
+            #close socket if server's key does not match
+            clientSocket.close()
+
+            #shutdown client
+            sys.exit()
 
     # Register my username with the server
-    # send username and key
+    # send username, key, and filename if SCP
     encrypted_username = rsa.encrypt(username, publicKey_server_e, publicKey_server_n)
     encrypted_publicKey_client = rsa.encrypt(publicKey_client, publicKey_server_e, publicKey_server_n)
     request2 = str(len(encrypted_username)) + ' ' + ' '.join(encrypted_username) + ' ' + str(len(encrypted_publicKey_client)) + ' ' + ' '.join(encrypted_publicKey_client)
+
+    if requestType == 'SCP':
+
+        try:
+
+            filename = sys.argv[4]
+            destination = sys.argv[5]
+            #encrypted_filename = rsa.encrypt(filename, publicKey_server_e, publicKey_server_n)
+            encrypted_destination = rsa.encrypt(destination, publicKey_server_e, publicKey_server_n)
+            request2 += ' ' + str(len(encrypted_destination)) + ' ' + ' '.join(encrypted_destination)
+
+        except Exception as e:
+
+                print("Provide a filename/path for the file, and the destination") 
+                print("Exception thrown: \r\n", e)
+
+                #close socket to client
+                clientSocket.close()
+
     request2 = len(request2).to_bytes(4, 'big', signed=False) + request2.encode()
     clientSocket.send(request2)
 
@@ -159,7 +180,7 @@ try:
     # We can process requests!                                            #
     #####################################################################
 
-    if requestType == "NOR":
+    if requestType == 'NOR':
     
         while True:
 
@@ -194,29 +215,33 @@ try:
         #shutdown client
         sys.exit()
 
-    if requestType == "SCP":
+    if requestType == 'SCP':
 
         #copy file
-        filename = sys.argv[4]
         with open(filename, "r") as f:
-            x = (f.read())
-
-        #print(outputdata)
+            x = (f.read())        
 
 	#send file to server
 	# send username and key
-        encrypted_file = rsa.encrypt(x, publicKey_server_e, publicKey_server_n)
-        encrypted_publicKey_client = rsa.encrypt(publicKey_client, publicKey_server_e, publicKey_server_n)
-        file = str(len(encrypted_file)) + ' ' + ' '.join(encrypted_file) + ' ' + str(len(encrypted_publicKey_client)) + ' ' + ' '.join(encrypted_publicKey_client)
-        file = len(file).to_bytes(4, 'big', signed=False) + file.encode()
-        clientSocket.send(file)
+        #encrypted_file = rsa.encrypt(x, publicKey_server_e, publicKey_server_n)
+        #encrypted_publicKey_client = rsa.encrypt(publicKey_client, publicKey_server_e, publicKey_server_n)
+        #file = str(len(encrypted_file)) + ' ' + ' '.join(encrypted_file) + ' ' + str(len(encrypted_publicKey_client)) + ' ' + ' '.join(encrypted_publicKey_client)
+        #file = len(file).to_bytes(4, 'big', signed=False) + file.encode()
+        #clientSocket.send(file)
 
-	#receive response from server
+        #receive response from server
         mlen = clientSocket.recv(4)
         mlen = int.from_bytes(mlen, 'big', signed=False)
         response = clientSocket.recv(mlen).decode()
         response = rsa.decrypt(response.split(' '), privateKey_client, publicKey_client_n)
         print(f'SERVER: {response}')
+
+	# Encrypt the message, encrypt the hash of the message, and send these both
+        filehash = rsa.encrypt(sha.sha256(x), privateKey_client, publicKey_client_n)
+        encrypted_file = rsa.encrypt(x, publicKey_server_e, publicKey_server_n)
+        scpRequest = str(len(encrypted_file)) + ' ' + ' '.join(encrypted_file) + ' ' + str(len(filehash)) + ' ' + ' '.join(filehash)
+        scpRequest = len(scpRequest).to_bytes(4, 'big', signed=False) + scpRequest.encode()
+        clientSocket.send(scpRequest)
 
 	#close the connection to the server
         clientSocket.close()
