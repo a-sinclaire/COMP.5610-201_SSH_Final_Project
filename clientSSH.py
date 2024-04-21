@@ -9,15 +9,15 @@ import os
 # get username
 username = sys.argv[1]
 
-while ',' in username:
+while ',' in username or len(username) < 6:
 
-    username = input("username can't have a ',' in it")
+    username = input("Please enter a username with a length greater than 5 and no comma in it:")
 
 #get request type
 requestType = sys.argv[3]
 
-#verify request type is REG or NOR or SCP
-if requestType != "REG" and requestType != "NOR" and requestType != "SCP" and requestType != "HELP":
+#verify request type is NOR or SCP or HELP
+if requestType != "NOR" and requestType != "SCP" and requestType != "HELP":
 
     print("Error: Enter a valid request, REG, NOR, SCP, HELP")
 
@@ -40,20 +40,16 @@ with open(client_keys_filename, "r") as f:
 
 # list of just usernames saved in client keys file
 usernames = x.keys()
-print(f'Usernames in client_keys.txt: {list(usernames)}')
-
 
 #check if username is already in client_keys.txt
 if username in usernames:
 
-    print(f'Username {username} found in client_keys.txt')
     publicKey_client = x[username]  # get public key from client file
     publicKey_client_e, publicKey_client_n = [int(_) for _ in publicKey_client.split(',')]
     privateKey_client = int(x[username + ',r'])
 
 else:
 
-    print(f'Username {username} not found in client_keys.txt')
     # username not in client_keys.txt
     # generate a new public and private key for this user
     print('Generating new keys for this user...')
@@ -70,7 +66,6 @@ else:
        	f.write(str(x))
 
     print(f"Username {username} has been added to client file")
-    #print(f'Updated client_keys.txt: {x}')
 
 # set up client in try block
 try:
@@ -93,15 +88,12 @@ try:
     # Get server's public key
     clientSocket.send(request)  # requesting server pub key
 
-    print(f'Requesting {serverName}\'s public key...')
     mlen = clientSocket.recv(4)
     mlen = int.from_bytes(mlen, 'big', signed=False)
     response = clientSocket.recv(mlen)
 
     publicKey_server = response.decode()
     publicKey_server_e, publicKey_server_n = [int(_) for _ in publicKey_server.split(',')]
-    print(f'Received {serverName}\'s public key!')
-    # print(f'Server public key: {publicKey_server}')
 
     # read in saved usernames and keys from client_keys.tct
     with open('client_keys.txt', "r") as f:
@@ -113,7 +105,6 @@ try:
     if serverName not in usernames:
 
         print(f'{serverName}\'s public key not saved in client_keys.txt')
-        # server's username and pub key isn't saved in client_keys.txt
         x[serverName] = publicKey_server
 
         print(f'Adding server public key for {serverName} to client_keys.txt')
@@ -122,7 +113,6 @@ try:
 
     else:
 
-        print(f'{serverName}\'s public key found in client_keys.txt')
         #server's username and pub key is saved in client_keys.txt
         #verify we have the correct public key for the server
 
@@ -141,7 +131,7 @@ try:
             sys.exit()
 
     # Register my username with the server
-    # send username, key, and filename if SCP
+    # send username, key, and file destination if SCP
     encrypted_username = rsa.encrypt(username, publicKey_server_e, publicKey_server_n)
     encrypted_publicKey_client = rsa.encrypt(publicKey_client, publicKey_server_e, publicKey_server_n)
     request2 = str(len(encrypted_username)) + ' ' + ' '.join(encrypted_username) + ' ' + str(len(encrypted_publicKey_client)) + ' ' + ' '.join(encrypted_publicKey_client)
@@ -152,7 +142,6 @@ try:
 
             filename = sys.argv[4]
             destination = sys.argv[5]
-            #encrypted_filename = rsa.encrypt(filename, publicKey_server_e, publicKey_server_n)
             encrypted_destination = rsa.encrypt(destination, publicKey_server_e, publicKey_server_n)
             request2 += ' ' + str(len(encrypted_destination)) + ' ' + ' '.join(encrypted_destination)
 
@@ -173,7 +162,6 @@ try:
     response = clientSocket.recv(mlen).decode()
     response = response.split(' ')
     response = rsa.decrypt(response, privateKey_client, publicKey_client_n)
-    print(f'SERVER: {response}')
 	
     #####################################################################
     # Now that it is all set up and we are registered (or already were) #
@@ -215,26 +203,17 @@ try:
         #shutdown client
         sys.exit()
 
-    if requestType == 'SCP':
+    elif requestType == 'SCP':
 
         #copy file
         with open(filename, "r") as f:
             x = (f.read())        
-
-	#send file to server
-	# send username and key
-        #encrypted_file = rsa.encrypt(x, publicKey_server_e, publicKey_server_n)
-        #encrypted_publicKey_client = rsa.encrypt(publicKey_client, publicKey_server_e, publicKey_server_n)
-        #file = str(len(encrypted_file)) + ' ' + ' '.join(encrypted_file) + ' ' + str(len(encrypted_publicKey_client)) + ' ' + ' '.join(encrypted_publicKey_client)
-        #file = len(file).to_bytes(4, 'big', signed=False) + file.encode()
-        #clientSocket.send(file)
 
         #receive response from server
         mlen = clientSocket.recv(4)
         mlen = int.from_bytes(mlen, 'big', signed=False)
         response = clientSocket.recv(mlen).decode()
         response = rsa.decrypt(response.split(' '), privateKey_client, publicKey_client_n)
-        print(f'SERVER: {response}')
 
 	# Encrypt the message, encrypt the hash of the message, and send these both
         filehash = rsa.encrypt(sha.sha256(x), privateKey_client, publicKey_client_n)
@@ -245,6 +224,15 @@ try:
 
 	#close the connection to the server
         clientSocket.close()
+
+    elif requestType == "HELP":
+
+        #receive response from server
+        mlen = clientSocket.recv(4)
+        mlen = int.from_bytes(mlen, 'big', signed=False)
+        response = clientSocket.recv(mlen).decode()
+        response = rsa.decrypt(response.split(' '), privateKey_client, publicKey_client_n)
+        print(f'{response}') 
 
 except IndexError as e:
 
