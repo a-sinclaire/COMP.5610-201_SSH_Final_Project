@@ -109,12 +109,26 @@ while True:
         publicKey_client = rsa.decrypt(datalist[msg_index:msg_index+number_of_key_chunks], privateKey, publicKey_server_n)
         msg_index += number_of_key_chunks
 
+        if requestType == 'SCP':
+
+            #get the filename/path
+            #number_of_filename_chunks = int(datalist[msg_index])
+            #msg_index += 1
+            #filename = rsa.decrypt(datalist[msg_index:msg_index+number_of_filename_chunks], privateKey, publicKey_server_n)
+            #msg_index += number_of_filename_chunks
+
+            #get the destination
+            number_of_file_destination_chunks = int(datalist[msg_index])
+            msg_index += 1
+            file_destination = rsa.decrypt(datalist[msg_index:msg_index+number_of_file_destination_chunks], privateKey, publicKey_server_n)
+            msg_index += number_of_file_destination_chunks
+
         #open file in read mode, and get a list of usernames in the system
         with open('server_keys.txt', "r") as f:
             x = ast.literal_eval(f.read())
 
         usernames = x.keys()
-#print(f'usernames on server: {usernames}')
+
         #print(f'keys on server: {x}')
 
         #check if username is already in the file.
@@ -140,17 +154,19 @@ while True:
 
             #Add new username and key to file
             x[username] = publicKey_client
-#print(f'updated keys on server: {x}')
+
             with open('server_keys.txt', "w") as f:
                 f.write(str(x))
 
-            response = f'The user {username} has been registered\r\n\r\n'
+            response = f'The user {username} has been registered'
 
         publicKey_client_e, publicKey_client_n = [int(_) for _ in publicKey_client.split(',')]
         #send response
         response = ' '.join(rsa.encrypt(response, publicKey_client_e, publicKey_client_n))
         response = len(response).to_bytes(4, 'big', signed=False) + response.encode()
         connectionSocket.send(response)
+
+	#original_cwd = os.getcwd()
 
         try:
 
@@ -177,14 +193,16 @@ while True:
                     # Decrypt the hash of the message
                     number_of_hash_chunks = int(m[msg_index])
                     msg_index += 1
-                    message_hash = rsa.decrypt(m[msg_index:msg_index + number_of_key_chunks], publicKey_client_e, publicKey_client_n)
+                    message_hash = rsa.decrypt(m[msg_index:msg_index + number_of_hash_chunks], publicKey_client_e, publicKey_client_n)
                     msg_index += number_of_hash_chunks
 
                     if sha.sha256(message) != message_hash:
 
                         output = "Invalid hash fingerprint -- authentication failed"
+                        print(output)
+                        break
 
-                    elif message == 'exit':
+                    if message == 'exit':
 
                         break
 
@@ -204,28 +222,25 @@ while True:
                     output = len(output).to_bytes(4, 'big', signed=False) + output.encode()
                     connectionSocket.send(output)
 
-#print(f'received normal message: {message}')
-
                 connectionSocket.close()
+                os.chdir(directory)
             
 
             elif requestType == "SCP":
 
 	        #create response to client
-                response = 'File Copied'
+                response = 'File is being copied'
 
 	        #send response to client
-                response = 'File Copied'
                 response = ' '.join(rsa.encrypt(response, publicKey_client_e, publicKey_client_n))
                 response = len(response).to_bytes(4, 'big', signed=False) + response.encode()
                 connectionSocket.send(response)
 
+                msg_index = 0  # Indexer used to check how much of the message we've processed so far
                 #go into a loop until all data from file is received
                 while True:
 
 	            #receive file data
-                    data =''
-
                     mlen = connectionSocket.recv(4)
                     mlen = int.from_bytes(mlen, 'big', signed=False)
                     m = connectionSocket.recv(mlen).decode().split()
@@ -234,7 +249,7 @@ while True:
                     if not m:
                         break
 
-                    msg_index = 0  # Indexer used to check how much of the message we've processed so far
+                    #msg_index = 0  # Indexer used to check how much of the message we've processed so far
 
                     # Decrypt the message
                     number_of_content_chunks = int(m[msg_index])
@@ -245,31 +260,27 @@ while True:
                     # Decrypt the hash of the message
                     number_of_hash_chunks = int(m[msg_index])
                     msg_index += 1
-                    message_hash = rsa.decrypt(m[msg_index:msg_index + number_of_key_chunks], publicKey_client_e, publicKey_client_n)
+                    message_hash = rsa.decrypt(m[msg_index:msg_index + number_of_hash_chunks], publicKey_client_e, publicKey_client_n)
                     msg_index += number_of_hash_chunks
 
                     if sha.sha256(message) != message_hash:
 
                         output = "Invalid hash fingerprint -- authentication failed"
+                        print(output)
                         break
 
-                    #with open('cd \\' + filename, "w") as f:
-                    #    f.write(str(x))
+                # create the file to store client keys if it does not exist
+                if not os.path.exists(file_destination):
 
-                    data += message
-                print("Bingo")
-                #copy the file to the server
-                with open('cd \\' + filename, "w") as f:
-                    f.write(data)
+                    print("inside if")
+                    with open(file_destination, 'w') as f:
+                        f.write(message)
 
-	        #open file in read mode
-	        #f = open(filename, "r")
-				
-	        #print file to verify it was created
-	        #print(f.read())
+                else:
 
-	        #close the file
-	        #f.close()
+                    #copy the file to the server
+                    with open(file_destination, "w") as f:
+                        f.write(message)
 
 	        #close the connection to the client
                 connectionSocket.close()
@@ -287,12 +298,6 @@ while True:
 
                 #close socket to client
                 connectionSocket.close()
-
-                #close socket that server is listening on
-                #serverSocket.close()
-
-                #shutdown server
-                #sys.exit()
 	
     #check for KeyboardInterrupt and close sockets before exiting
     except KeyboardInterrupt:
