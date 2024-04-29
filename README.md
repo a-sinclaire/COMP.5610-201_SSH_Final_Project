@@ -2,6 +2,8 @@
 Use python to run the `serverSSH.py` file.
 It takes no command line arguments.
 
+If you do not have permission to run sockets on your machine you may have to run the file with root permissions using `sudo`.
+
 # How to run a Client
 Use pythin to run the `clientSSH.py` file.
 It takes 3 command line arguments:
